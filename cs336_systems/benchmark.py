@@ -29,9 +29,14 @@ if __name__== "__main__":
     model.to(device)
     x = torch.randint(0, vocab_size, (batch_size, context_len), device = device)
     for step in range(5):
-        model(x)
-    start = timeit.default_timer()
+        if args.mode == "forward":
+            model(x)
+        elif args.mode == "forward_backward":
+            pass
+        elif args.mode == "train_step":
+            pass
     torch.cuda.synchronize()
+    start = timeit.default_timer()
     for step in range(args.num_steps):
         if args.mode == "forward":
             model(x)
