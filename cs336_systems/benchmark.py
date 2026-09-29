@@ -1,8 +1,11 @@
 import argparse
 import torch
+
+import cs336_basics
 from cs336_basics.model import BasicsTransformerLM
 from cs336_basics.nn_utils import cross_entropy
 from cs336_basics.optimizer import AdamW
+from cs336_systems.annotated_attention import patch_attention
 import timeit
 import statistics
 
@@ -11,6 +14,7 @@ def parse_args():
     parser.add_argument("--num_layers", type = int, default = 12)
     parser.add_argument("--num_steps", type = int, default = 10)
     parser.add_argument("--mode", choices=["forward", "forward_backward", "train_step"], default="train_step")
+    parser.add_argument("--annotate_attention", action="store_false", help="add NVTX ranges inside attention for nsys profiling")
     return parser.parse_args()
 
 def forward(model, x):
@@ -39,6 +43,8 @@ if __name__== "__main__":
     vocab_size = 10000
     batch_size = 4
     print("in main")
+    if args.annotate_attention:
+        patch_attention()
     model = BasicsTransformerLM(
         vocab_size = vocab_size,
         context_length = context_len,
