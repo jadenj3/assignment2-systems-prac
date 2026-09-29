@@ -1,5 +1,6 @@
 import argparse
 import torch
+import torch.cuda.nvtx as nvtx
 
 import cs336_basics
 from cs336_basics.model import BasicsTransformerLM
@@ -57,27 +58,30 @@ if __name__== "__main__":
     model.to(device)
     optimizer = AdamW(model.parameters(), lr=1e-3)
     x = torch.randint(0, vocab_size, (batch_size, context_len), device = device)
-    for step in range(5):
-        if args.mode == "forward":
-            forward(model, x)
-        elif args.mode == "forward_backward":
-            forward_backwards(model, x)
-        elif args.mode == "train_step":
-            train_step(model, x, optimizer)
-    torch.cuda.synchronize()
+    with nvtx.range("warmup"):
+        for step in range(5):
+            if args.mode == "forward":
+                forward(model, x)
+            elif args.mode == "forward_backward":
+                forward_backwards(model, x)
+            elif args.mode == "train_step":
+                train_step(model, x, optimizer)
+        torch.cuda.synchronize()
     start = timeit.default_timer()
     results = []
-    for step in range(args.num_steps):
-        step_start = timeit.default_timer()
-        if args.mode == "forward":
-            forward(model, x)
-        elif args.mode == "forward_backward":
-            forward_backwards(model, x)
-        elif args.mode == "train_step":
-            train_step(model, x, optimizer)
-        torch.cuda.synchronize()
-        step_elapsed = timeit.default_timer() - step_start
-        results.append(step_elapsed)
+    with nvtx.range("measurement"):
+        for step in range(args.num_steps):
+            step_start = timeit.default_timer()
+            with nvtx.range(f"step {step}"):
+                if args.mode == "forward":
+                    forward(model, x)
+                elif args.mode == "forward_backward":
+                    forward_backwards(model, x)
+                elif args.mode == "train_step":
+                    train_step(model, x, optimizer)
+                torch.cuda.synchronize()
+            step_elapsed = timeit.default_timer() - step_start
+            results.append(step_elapsed)
     elapsed = timeit.default_timer() - start
     print(f"all steps combined took {elapsed} seconds")
     average_step_time = statistics.mean(results)
